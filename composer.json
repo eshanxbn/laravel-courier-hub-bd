@@ -1,0 +1,64 @@
+{
+    "name": "courierhub/courierhub",
+    "description": "Unified Bangladesh courier integration for Laravel — Pathao, Steadfast, RedX, eCourier, Paperfly. Single package, single config, easy enable/disable toggles.",
+    "keywords": [
+        "laravel",
+        "courier",
+        "bangladesh",
+        "pathao",
+        "steadfast",
+        "redx",
+        "ecourier",
+        "paperfly",
+        "shipping",
+        "delivery",
+        "ecommerce",
+        "cod",
+        "parcel",
+        "tracking"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "CourierHub",
+            "email": "hello@courierhub.dev"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "illuminate/http": "^10.0|^11.0|^12.0",
+        "illuminate/contracts": "^10.0|^11.0|^12.0",
+        "illuminate/routing": "^10.0|^11.0|^12.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0",
+        "phpunit/phpunit": "^10.0|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "CourierHub\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "CourierHub\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "CourierHub\\CourierHubServiceProvider"
+            ],
+            "aliases": {
+                "Courier": "CourierHub\\Facades\\Courier"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

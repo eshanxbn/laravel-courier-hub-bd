@@ -1,0 +1,180 @@
+<?php
+
+namespace CourierHub\Drivers\RedX;
+
+use CourierHub\Contracts\CourierDriver;
+use CourierHub\Contracts\HasStoreManagement;
+use CourierHub\Contracts\HasWebhook;
+use CourierHub\DTOs\CancelResponse;
+use CourierHub\DTOs\OrderData;
+use CourierHub\DTOs\OrderResponse;
+use CourierHub\DTOs\PriceCalculationData;
+use CourierHub\DTOs\PriceResponse;
+use CourierHub\DTOs\StoreData;
+use CourierHub\DTOs\StoreResponse;
+use CourierHub\DTOs\TrackingEvent;
+use CourierHub\DTOs\TrackingResponse;
+use CourierHub\DTOs\WebhookEvent;
+use Illuminate\Http\Request;
+
+class RedXDriver implements CourierDriver, HasStoreManagement, HasWebhook
+{
+    protected RedXClient $client;
+    protected string $webhookSecret;
+
+    public function __construct(array $config, array $httpConfig)
+    {
+        $this->client = new RedXClient($config, $httpConfig);
+        $this->webhookSecret = config('courierhub.webhook.secrets.redx', '');
+    }
+
+    public function createOrder(OrderData $order): OrderResponse
+    {
+        $payload = [
+            'customer_name'         => $order->recipient_name,
+            'customer_phone'        => $order->recipient_phone,
+            'delivery_area'         => $order->recipient_area ?? 'N/A',
+            'delivery_area_id'      => (int) $order->recipient_area,
+            'customer_address'      => $order->recipient_address,
+            'merchant_invoice_id'   => $order->merchant_order_id,
+            'cash_collection_amount'=> $order->amount_to_collect,
+            'parcel_weight'         => $order->weight,
+            'instruction'           => $order->special_instruction ?? '',
+            'value'                 => $order->amount_to_collect,
+        ];
+
+        if ($order->store_id) {
+            $payload['pickup_store_id'] = $order->store_id;
+        }
+
+        $response = $this->client->post('/parcel', $payload);
+        $data = $response['parcel'] ?? [];
+
+        return new OrderResponse(
+            tracking_id: $data['tracking_id'] ?? '',
+            courier_name: 'redx',
+            status: RedXStatusMapper::map('pending'),
+            consignment_id: $data['tracking_id'] ?? '',
+            raw_response: $response,
+        );
+    }
+
+    public function trackOrder(string $trackingId): TrackingResponse
+    {
+        $response = $this->client->get("/parcel/track/{$trackingId}");
+        
+        // Find current status from history or response
+        $current = 'pending';
+        $history = [];
+        if (isset($response['tracking_history']) && is_array($response['tracking_history'])) {
+            $latest = end($response['tracking_history']);
+            $current = $latest['status'] ?? 'pending';
+            
+            foreach ($response['tracking_history'] as $event) {
+                $history[] = new TrackingEvent(
+                    status: RedXStatusMapper::map($event['status']),
+                    timestamp: $event['date'] ?? now()->toIso8601String(),
+                    description: $event['message'] ?? null,
+                );
+            }
+        }
+
+        return new TrackingResponse(
+            tracking_id: $trackingId,
+            current_status: RedXStatusMapper::map($current),
+            history: $history,
+            raw_response: $response,
+        );
+    }
+
+    public function cancelOrder(string $trackingId): CancelResponse
+    {
+        return new CancelResponse(false, 'Cancellation not supported via RedX public API', $trackingId);
+    }
+
+    public function calculatePrice(PriceCalculationData $data): PriceResponse
+    {
+        $query = [
+            'delivery_area_id' => $data->to_area,
+            'pickup_area_id'   => $data->from_area,
+            'weight'           => $data->weight,
+            'cash_collection_amount' => $data->cod_amount,
+        ];
+
+        $response = $this->client->get('/charge/charge_calculator', $query);
+        $total = $response['charge_details']['total_charge'] ?? 0;
+        
+        return new PriceResponse(
+            courier_name: 'redx',
+            delivery_charge: (float) $total,
+            cod_charge: 0, // bundled in total by redx typically or specified inside details
+            total_charge: (float) $total,
+            raw_response: $response,
+        );
+    }
+
+    public function getStores(): array
+    {
+        $response = $this->client->get('/pickup/stores');
+        $stores = [];
+
+        foreach ($response['pickup_stores'] ?? [] as $store) {
+            $stores[] = new StoreResponse(
+                id: (string) $store['id'],
+                name: $store['name'],
+                address: $store['address'],
+                phone: $store['phone'] ?? null,
+                raw_response: $store,
+            );
+        }
+
+        return $stores;
+    }
+
+    public function createStore(StoreData $data): StoreResponse
+    {
+        $payload = [
+            'name' => $data->name,
+            'phone' => $data->phone,
+            'address' => $data->address,
+            'area_id' => $data->area_id,
+        ];
+
+        $response = $this->client->post('/pickup/stores', $payload);
+        $resData = $response['pickup_store'] ?? [];
+
+        return new StoreResponse(
+            id: (string) ($resData['id'] ?? ''),
+            name: $resData['name'] ?? '',
+            address: $resData['address'] ?? '',
+            phone: $resData['phone'] ?? '',
+            raw_response: $response,
+        );
+    }
+
+    public function parseWebhook(Request $request): WebhookEvent
+    {
+        $payload = $request->all();
+        return new WebhookEvent(
+            courier_name: 'redx',
+            tracking_id: $payload['tracking_id'] ?? '',
+            status: RedXStatusMapper::map($payload['status'] ?? ''),
+            raw_payload: $payload,
+        );
+    }
+
+    public function validateWebhook(Request $request): bool
+    {
+        if (empty($this->webhookSecret)) {
+            return true;
+        }
+
+        $signature = $request->header('X-Redx-Signature');
+        if (!$signature) {
+            return false;
+        }
+
+        $expected = hash_hmac('sha256', $request->getContent(), $this->webhookSecret);
+        return hash_equals($expected, $signature);
+    }
+}
