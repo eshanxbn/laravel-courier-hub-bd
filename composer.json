@@ -1,5 +1,5 @@
 {
-    "name": "courierhub/courierhub",
+    "name": "eshanxbn/laravel-courier-hub-bd",
     "description": "Unified Bangladesh courier integration for Laravel — Pathao, Steadfast, RedX, eCourier, Paperfly. Single package, single config, easy enable/disable toggles.",
     "keywords": [
         "laravel",
