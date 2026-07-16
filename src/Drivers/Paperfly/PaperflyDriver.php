@@ -6,9 +6,6 @@ use CourierHub\Contracts\CourierDriver;
 use CourierHub\DTOs\CancelResponse;
 use CourierHub\DTOs\OrderData;
 use CourierHub\DTOs\OrderResponse;
-use CourierHub\DTOs\PriceCalculationData;
-use CourierHub\DTOs\PriceResponse;
-use CourierHub\DTOs\TrackingEvent;
 use CourierHub\DTOs\TrackingResponse;
 
 class PaperflyDriver implements CourierDriver
@@ -24,10 +21,6 @@ class PaperflyDriver implements CourierDriver
     {
         $payload = [
             'merOrderRef'   => $order->merchant_order_id,
-            'pickMerchantName' => 'Merchant Name', // Could be added to config
-            'pickMerchantAddress' => 'Merchant Address',
-            'pickMerchantThana' => 'Thana',
-            'pickMerchantDistrict' => 'District',
             'custName'      => $order->recipient_name,
             'custAddress'   => $order->recipient_address,
             'custPhone'     => $order->recipient_phone,
@@ -75,24 +68,6 @@ class PaperflyDriver implements CourierDriver
             message: $response['message'] ?? '',
             tracking_id: $trackingId,
             raw_response: $response,
-        );
-    }
-
-    public function calculatePrice(PriceCalculationData $data): PriceResponse
-    {
-        $charge = 60; 
-        if ($data->weight > 1) {
-            $charge += ($data->weight - 1) * 15;
-        }
-
-        $codCharge = $data->cod_amount > 0 ? ($data->cod_amount * 0.01) : 0;
-
-        return new PriceResponse(
-            courier_name: 'paperfly',
-            delivery_charge: $charge,
-            cod_charge: $codCharge,
-            total_charge: $charge + $codCharge,
-            raw_response: [],
         );
     }
 }

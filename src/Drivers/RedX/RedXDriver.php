@@ -8,8 +8,6 @@ use CourierHub\Contracts\HasWebhook;
 use CourierHub\DTOs\CancelResponse;
 use CourierHub\DTOs\OrderData;
 use CourierHub\DTOs\OrderResponse;
-use CourierHub\DTOs\PriceCalculationData;
-use CourierHub\DTOs\PriceResponse;
 use CourierHub\DTOs\StoreData;
 use CourierHub\DTOs\StoreResponse;
 use CourierHub\DTOs\TrackingEvent;
@@ -90,27 +88,6 @@ class RedXDriver implements CourierDriver, HasStoreManagement, HasWebhook
     public function cancelOrder(string $trackingId): CancelResponse
     {
         return new CancelResponse(false, 'Cancellation not supported via RedX public API', $trackingId);
-    }
-
-    public function calculatePrice(PriceCalculationData $data): PriceResponse
-    {
-        $query = [
-            'delivery_area_id' => $data->to_area,
-            'pickup_area_id'   => $data->from_area,
-            'weight'           => $data->weight,
-            'cash_collection_amount' => $data->cod_amount,
-        ];
-
-        $response = $this->client->get('/charge/charge_calculator', $query);
-        $total = $response['charge_details']['total_charge'] ?? 0;
-        
-        return new PriceResponse(
-            courier_name: 'redx',
-            delivery_charge: (float) $total,
-            cod_charge: 0, // bundled in total by redx typically or specified inside details
-            total_charge: (float) $total,
-            raw_response: $response,
-        );
     }
 
     public function getStores(): array

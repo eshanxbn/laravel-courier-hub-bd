@@ -30,7 +30,6 @@ class CourierHubServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->publishConfig();
-        $this->publishMigrations();
         $this->registerRoutes();
         $this->registerCommands();
     }
@@ -44,18 +43,6 @@ class CourierHubServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__ . '/../config/courierhub.php' => config_path('courierhub.php'),
             ], 'courierhub-config');
-        }
-    }
-
-    /**
-     * Publish migration files.
-     */
-    protected function publishMigrations(): void
-    {
-        if ($this->app->runningInConsole()) {
-            $this->publishes([
-                __DIR__ . '/../database/migrations/' => database_path('migrations'),
-            ], 'courierhub-migrations');
         }
     }
 

@@ -10,8 +10,6 @@ use CourierHub\DTOs\CancelResponse;
 use CourierHub\DTOs\OrderData;
 use CourierHub\DTOs\OrderResponse;
 use CourierHub\DTOs\PaymentStatusResponse;
-use CourierHub\DTOs\PriceCalculationData;
-use CourierHub\DTOs\PriceResponse;
 use CourierHub\DTOs\TrackingEvent;
 use CourierHub\DTOs\TrackingResponse;
 
@@ -92,26 +90,6 @@ class ECourierDriver implements CourierDriver, HasAreaLookup, HasPaymentStatus
             message: $response['message'] ?? '',
             tracking_id: $trackingId,
             raw_response: $response,
-        );
-    }
-
-    public function calculatePrice(PriceCalculationData $data): PriceResponse
-    {
-        // eCourier doesn't strictly have a public generic price plan calculation via v5 API easily 
-        // without placing an order. Usually it depends on the package plan.
-        $charge = 60; 
-        if ($data->weight > 1) {
-            $charge += ($data->weight - 1) * 15;
-        }
-
-        $codCharge = $data->cod_amount > 0 ? ($data->cod_amount * 0.01) : 0;
-
-        return new PriceResponse(
-            courier_name: 'ecourier',
-            delivery_charge: $charge,
-            cod_charge: $codCharge,
-            total_charge: $charge + $codCharge,
-            raw_response: [],
         );
     }
 

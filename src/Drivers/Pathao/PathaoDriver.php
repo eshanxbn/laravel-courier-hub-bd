@@ -12,8 +12,6 @@ use CourierHub\DTOs\BalanceResponse;
 use CourierHub\DTOs\CancelResponse;
 use CourierHub\DTOs\OrderData;
 use CourierHub\DTOs\OrderResponse;
-use CourierHub\DTOs\PriceCalculationData;
-use CourierHub\DTOs\PriceResponse;
 use CourierHub\DTOs\StoreData;
 use CourierHub\DTOs\StoreResponse;
 use CourierHub\DTOs\TrackingEvent;
@@ -29,7 +27,7 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
     public function __construct(array $config, array $cacheConfig, array $httpConfig)
     {
         $this->client = new PathaoClient($config, $cacheConfig, $httpConfig);
-        $this->webhookSecret = $config['webhook_secret'] ?? '';
+        $this->webhookSecret = (string) config('courierhub.webhook.secrets.pathao', '');
     }
 
     public function createOrder(OrderData $order): OrderResponse
@@ -88,33 +86,6 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
         // Currently, Pathao doesn't always have a public standard cancel API v1 for merchants, usually handled via dashboard.
         // We will fake a response or assume a generic one. Let's use a standard pattern.
         return new CancelResponse(false, 'Cancellation not supported directly via this API version', $trackingId);
-    }
-
-    public function calculatePrice(PriceCalculationData $data): PriceResponse
-    {
-        $payload = [
-            'store_id'      => $data->store_id,
-            'item_type'     => $data->item_type === 'document' ? 1 : 2,
-            'delivery_type' => 48,
-            'item_weight'   => $data->weight,
-            'recipient_city' => $data->to_area,
-            'recipient_zone' => null,
-        ];
-
-        $response = $this->client->post('/aladdin/api/v1/merchant/price-plan', $payload);
-        $resData = $response['data'];
-
-        $deliveryCharge = $resData['price'] ?? 0;
-        // Approximation or actual COD charge if Pathao returns it
-        $codCharge = $data->cod_amount > 0 ? ($data->cod_amount * 0.01) : 0; // standard 1%
-
-        return new PriceResponse(
-            courier_name: 'pathao',
-            delivery_charge: (float) $deliveryCharge,
-            cod_charge: (float) $codCharge,
-            total_charge: (float) ($deliveryCharge + $codCharge),
-            raw_response: $response,
-        );
     }
 
     public function getBalance(): BalanceResponse

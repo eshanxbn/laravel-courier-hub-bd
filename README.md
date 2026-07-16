@@ -6,11 +6,10 @@ Unified Bangladesh courier integration for Laravel — Pathao, Steadfast, RedX, 
 
 Most courier packages in Bangladesh support only a single courier, with completely different API methods, DTOs, and architectures. 
 
-CourierHub provides a unified `Manager/Driver` architecture (like Laravel's Cache or Filesystem) that normalizes **Order Booking**, **Tracking**, **Webhooks**, and **Prices** across the top 5 couriers in Bangladesh.
+CourierHub provides a unified `Manager/Driver` architecture (like Laravel's Cache or Filesystem) that normalizes **Order Booking**, **Tracking**, and **Webhooks** across the top 5 couriers in Bangladesh.
 
 - ✅ **Switch couriers instantly**: `Courier::driver('pathao')->createOrder($data)`
 - ✅ **Unified DTOs**: Same request/response objects for every courier
-- ✅ **Cheapest auto-selection**: `Courier::cheapest($data)->createOrder($data)`
 - ✅ **Normalized Webhooks**: A single event for all courier status updates
 
 ## Installation
@@ -19,12 +18,10 @@ CourierHub provides a unified `Manager/Driver` architecture (like Laravel's Cach
 composer require courierhub/courierhub
 ```
 
-Publish the config and migrations:
+Publish the config:
 
 ```bash
 php artisan vendor:publish --tag="courierhub-config"
-php artisan vendor:publish --tag="courierhub-migrations"
-php artisan migrate
 ```
 
 ## Configuration
@@ -75,22 +72,6 @@ $response = Courier::driver('steadfast')->createOrder($order);
 
 echo $response->tracking_id; // Unified tracking ID
 echo $response->status->value; // CourierHub\Enums\CourierStatus
-```
-
-### Compare Prices & Pick Cheapest
-
-Find out which enabled courier is cheapest for a specific delivery:
-
-```php
-use CourierHub\DTOs\PriceCalculationData;
-
-$calc = new PriceCalculationData(weight: 2.0, cod_amount: 1500, to_area: 'Dhaka');
-
-// Get collection of all prices, sorted by cheapest
-$prices = Courier::comparePrices($calc);
-
-// Or directly book with the cheapest courier!
-$response = Courier::cheapest($calc)->createOrder($order);
 ```
 
 ### Tracking

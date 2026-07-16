@@ -2,8 +2,6 @@
 
 namespace CourierHub;
 
-use CourierHub\Contracts\CourierDriver;
-use CourierHub\DTOs\PriceCalculationData;
 use CourierHub\Exceptions\CourierDisabledException;
 use CourierHub\Exceptions\CourierNotFoundException;
 use Illuminate\Support\Collection;
@@ -55,45 +53,6 @@ class CourierManager extends Manager
         return collect($couriers)
             ->filter(fn ($config) => !empty($config['enabled']))
             ->keys();
-    }
-
-    /**
-     * Compare prices across all enabled couriers.
-     * Returns a collection of PriceResponse sorted by total charge (cheapest first).
-     *
-     * @return \Illuminate\Support\Collection<\CourierHub\DTOs\PriceResponse>
-     */
-    public function comparePrices(PriceCalculationData $data): Collection
-    {
-        $prices = collect();
-
-        foreach ($this->enabledDrivers() as $driverName) {
-            try {
-                $driver = $this->driver($driverName);
-                $price = $driver->calculatePrice($data);
-                $prices->push($price);
-            } catch (\Exception $e) {
-                // Skip if driver fails to calculate price
-                continue;
-            }
-        }
-
-        return $prices->sortBy('total_charge')->values();
-    }
-
-    /**
-     * Auto-select the cheapest available driver.
-     * Throws an exception if no driver can fulfill the calculation.
-     */
-    public function cheapest(PriceCalculationData $data): CourierDriver
-    {
-        $prices = $this->comparePrices($data);
-
-        if ($prices->isEmpty()) {
-            throw new CourierNotFoundException("No enabled courier could calculate a price for the given data.");
-        }
-
-        return $this->driver($prices->first()->courier_name);
     }
 
     // Driver Factories
