@@ -14,7 +14,6 @@ use CourierHub\DTOs\OrderData;
 use CourierHub\DTOs\OrderResponse;
 use CourierHub\DTOs\StoreData;
 use CourierHub\DTOs\StoreResponse;
-use CourierHub\DTOs\TrackingEvent;
 use CourierHub\DTOs\TrackingResponse;
 use CourierHub\DTOs\WebhookEvent;
 use Illuminate\Http\Request;
@@ -23,75 +22,73 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
 {
     protected PathaoClient $client;
     protected string $webhookSecret;
+    protected ?int $defaultStoreId;
 
     public function __construct(array $config, array $cacheConfig, array $httpConfig)
     {
         $this->client = new PathaoClient($config, $cacheConfig, $httpConfig);
         $this->webhookSecret = (string) config('courierhub.webhook.secrets.pathao', '');
+        $this->defaultStoreId = isset($config['default_store_id']) && $config['default_store_id'] !== ''
+            ? (int) $config['default_store_id']
+            : null;
     }
 
     public function createOrder(OrderData $order): OrderResponse
     {
+        $storeId = $order->store_id ?? $this->defaultStoreId;
+
         $payload = [
             'merchant_order_id'   => $order->merchant_order_id,
             'recipient_name'      => $order->recipient_name,
             'recipient_phone'     => $order->recipient_phone,
             'recipient_address'   => $order->recipient_address,
-            'recipient_city'      => $order->recipient_city,
-            'recipient_zone'      => $order->recipient_zone,
-            'recipient_area'      => $order->recipient_area,
-            'delivery_type'       => $order->delivery_type === 'express' ? 48 : 48, // Pathao typically uses 48 for normal
-            'item_type'           => $order->item_type === 'document' ? 1 : 2, // 1 for Document, 2 for Parcel
-            'store_id'            => $order->store_id,
+            'recipient_city'      => $order->city_id ?? $order->recipient_city,
+            'recipient_zone'      => $order->zone_id ?? $order->recipient_zone,
+            'recipient_area'      => $order->area_id ?? $order->recipient_area,
+            // Pathao: 48 = Normal Delivery, 12 = On Demand / Express
+            'delivery_type'       => $order->delivery_type === 'express' ? 12 : 48,
+            'item_type'           => $order->item_type === 'document' ? 1 : 2,
+            'store_id'            => $storeId,
             'item_quantity'       => $order->item_quantity,
             'item_weight'         => $order->weight,
-            'amount_to_collect'   => $order->amount_to_collect,
+            'amount_to_collect'   => (int) round($order->amount_to_collect),
             'item_description'    => $order->item_description,
             'special_instruction' => $order->special_instruction,
         ];
 
         $response = $this->client->post('/aladdin/api/v1/orders', $payload);
-        $data = $response['data'];
+        $data = $response['data'] ?? [];
 
         return new OrderResponse(
-            tracking_id: $data['consignment_id'],
+            tracking_id: (string) ($data['consignment_id'] ?? ''),
             courier_name: 'pathao',
-            status: PathaoStatusMapper::map($data['order_status']),
-            consignment_id: $data['consignment_id'],
-            delivery_charge: $data['delivery_fee'] ?? null,
+            status: PathaoStatusMapper::map((string) ($data['order_status'] ?? 'pending')),
+            consignment_id: isset($data['consignment_id']) ? (string) $data['consignment_id'] : null,
+            delivery_charge: isset($data['delivery_fee']) ? (float) $data['delivery_fee'] : null,
             raw_response: $response,
         );
     }
 
     public function trackOrder(string $trackingId): TrackingResponse
     {
-        // Pathao API might need a specific endpoint to track by consignment ID or merchant order ID
-        // Often it's GET /aladdin/api/v1/orders/{consignment_id}
         $response = $this->client->get("/aladdin/api/v1/orders/{$trackingId}");
-        $data = $response['data'];
+        $data = $response['data'] ?? [];
 
         return new TrackingResponse(
-            tracking_id: $data['consignment_id'],
-            current_status: PathaoStatusMapper::map($data['order_status']),
-            history: [], // Pathao may not provide detailed history in this endpoint without webhooks
+            tracking_id: (string) ($data['consignment_id'] ?? $trackingId),
+            current_status: PathaoStatusMapper::map((string) ($data['order_status'] ?? '')),
+            history: [],
             raw_response: $response,
         );
     }
 
     public function cancelOrder(string $trackingId): CancelResponse
     {
-        // Cancel order via Pathao endpoint if available, some require manual cancellation or specific POST
-        // Assuming there is an endpoint like POST /aladdin/api/v1/orders/{id}/cancel for now.
-        // Or if it's unsupported we will throw an exception or return failure.
-        // Currently, Pathao doesn't always have a public standard cancel API v1 for merchants, usually handled via dashboard.
-        // We will fake a response or assume a generic one. Let's use a standard pattern.
-        return new CancelResponse(false, 'Cancellation not supported directly via this API version', $trackingId);
+        return new CancelResponse(false, 'Cancellation is not supported via Pathao merchant API v1', $trackingId);
     }
 
     public function getBalance(): BalanceResponse
     {
-        // Pathao provides balance in a specific endpoint or dashboard.
-        // Assuming GET /aladdin/api/v1/merchant/balance
         return new BalanceResponse(0, 'BDT', null, []);
     }
 
@@ -100,7 +97,7 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
         $response = $this->client->get('/aladdin/api/v1/stores');
         $stores = [];
 
-        foreach ($response['data']['data'] as $store) {
+        foreach ($response['data']['data'] ?? [] as $store) {
             $stores[] = new StoreResponse(
                 id: (string) $store['store_id'],
                 name: $store['store_name'],
@@ -126,13 +123,13 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
         ];
 
         $response = $this->client->post('/aladdin/api/v1/stores', $payload);
-        $resData = $response['data'];
+        $resData = $response['data'] ?? [];
 
         return new StoreResponse(
-            id: (string) $resData['store_id'],
-            name: $resData['store_name'],
-            address: $resData['store_address'],
-            phone: $resData['contact_number'],
+            id: (string) ($resData['store_id'] ?? ''),
+            name: $resData['store_name'] ?? $data->name,
+            address: $resData['store_address'] ?? $data->address,
+            phone: $resData['contact_number'] ?? $data->phone,
             raw_response: $response,
         );
     }
@@ -142,7 +139,7 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
         $response = $this->client->get('/aladdin/api/v1/countries/1/city-list');
         $cities = [];
 
-        foreach ($response['data']['data'] as $city) {
+        foreach ($response['data']['data'] ?? [] as $city) {
             $cities[] = new AreaData(
                 id: (string) $city['city_id'],
                 name: $city['city_name'],
@@ -158,7 +155,7 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
         $response = $this->client->get("/aladdin/api/v1/cities/{$cityId}/zone-list");
         $zones = [];
 
-        foreach ($response['data']['data'] as $zone) {
+        foreach ($response['data']['data'] ?? [] as $zone) {
             $zones[] = new AreaData(
                 id: (string) $zone['zone_id'],
                 name: $zone['zone_name'],
@@ -174,7 +171,7 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
         $response = $this->client->get("/aladdin/api/v1/zones/{$zoneId}/area-list");
         $areas = [];
 
-        foreach ($response['data']['data'] as $area) {
+        foreach ($response['data']['data'] ?? [] as $area) {
             $areas[] = new AreaData(
                 id: (string) $area['area_id'],
                 name: $area['area_name'],
@@ -188,19 +185,21 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
     public function parseWebhook(Request $request): WebhookEvent
     {
         $payload = $request->all();
+
         return new WebhookEvent(
             courier_name: 'pathao',
-            tracking_id: $payload['consignment_id'] ?? '',
-            status: PathaoStatusMapper::map($payload['order_status'] ?? ''),
+            tracking_id: (string) ($payload['consignment_id'] ?? ''),
+            status: PathaoStatusMapper::map((string) ($payload['order_status'] ?? '')),
             raw_payload: $payload,
             timestamp: $payload['updated_at'] ?? now()->toIso8601String(),
+            merchant_order_id: isset($payload['merchant_order_id']) ? (string) $payload['merchant_order_id'] : null,
         );
     }
 
     public function validateWebhook(Request $request): bool
     {
-        if (empty($this->webhookSecret)) {
-            return true; // if no secret configured, allow
+        if ($this->webhookSecret === '') {
+            return true;
         }
 
         $signature = $request->header('X-PATHAO-SIGNATURE');
@@ -209,6 +208,7 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
         }
 
         $expected = hash_hmac('sha256', $request->getContent(), $this->webhookSecret);
+
         return hash_equals($expected, $signature);
     }
 }

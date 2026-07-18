@@ -55,11 +55,11 @@ class CourierHubServiceProvider extends ServiceProvider
         $middleware = config('courierhub.webhook.middleware', []);
 
         $this->app['router']
+            ->middleware($middleware)
             ->post("{$webhookPath}/{provider}", [
                 \CourierHub\Http\Controllers\WebhookController::class,
                 'handle',
             ])
-            ->middleware($middleware)
             ->name('courierhub.webhook');
     }
 

@@ -7,6 +7,7 @@ use CourierHub\Events\CourierWebhookReceived;
 use CourierHub\Facades\Courier;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 
 class WebhookController
 {
@@ -17,20 +18,21 @@ class WebhookController
         }
 
         $driver = Courier::driver($provider);
-        
-        if ($driver instanceof HasWebhook) {
-            // Optional: You can handle signature verification directly here if not using middleware,
-            // but the driver interface handles the validation logic.
-            if (!$driver->validateWebhook($request)) {
-                return response('Invalid webhook signature', 403);
-            }
 
-            $event = $driver->parseWebhook($request);
-            
-            // Dispatch the normalized event
-            event(new CourierWebhookReceived($event));
+        if (!$driver instanceof HasWebhook) {
+            Log::warning("CourierHub: driver [{$provider}] received a webhook but does not implement HasWebhook.");
+
+            return response('Webhook not supported for this courier', 400);
         }
-        
+
+        if (!$driver->validateWebhook($request)) {
+            return response('Invalid webhook signature', 403);
+        }
+
+        $event = $driver->parseWebhook($request);
+
+        event(new CourierWebhookReceived($event));
+
         return response('OK', 200);
     }
 }

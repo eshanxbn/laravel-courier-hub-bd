@@ -2,6 +2,13 @@
 
 namespace CourierHub;
 
+use CourierHub\Contracts\HasAreaLookup;
+use CourierHub\Contracts\HasBalance;
+use CourierHub\Contracts\HasBulkOrder;
+use CourierHub\Contracts\HasFraudCheck;
+use CourierHub\Contracts\HasPaymentStatus;
+use CourierHub\Contracts\HasStoreManagement;
+use CourierHub\Contracts\HasWebhook;
 use CourierHub\Exceptions\CourierDisabledException;
 use CourierHub\Exceptions\CourierNotFoundException;
 use Illuminate\Support\Collection;
@@ -44,15 +51,36 @@ class CourierManager extends Manager
     /**
      * Get a collection of all enabled courier names.
      *
-     * @return \Illuminate\Support\Collection<string>
+     * @return \Illuminate\Support\Collection<int, string>
      */
     public function enabledDrivers(): Collection
     {
         $couriers = $this->config->get('courierhub.couriers', []);
-        
+
         return collect($couriers)
             ->filter(fn ($config) => !empty($config['enabled']))
             ->keys();
+    }
+
+    /**
+     * Whether the given (or default) driver supports a capability.
+     *
+     * Supported capabilities: webhook, areas, fraud, bulk, balance, stores, payment_status
+     */
+    public function supports(string $capability, ?string $driver = null): bool
+    {
+        $instance = $this->driver($driver);
+
+        return match ($capability) {
+            'webhook' => $instance instanceof HasWebhook,
+            'areas' => $instance instanceof HasAreaLookup,
+            'fraud' => $instance instanceof HasFraudCheck,
+            'bulk' => $instance instanceof HasBulkOrder,
+            'balance' => $instance instanceof HasBalance,
+            'stores' => $instance instanceof HasStoreManagement,
+            'payment_status' => $instance instanceof HasPaymentStatus,
+            default => false,
+        };
     }
 
     // Driver Factories

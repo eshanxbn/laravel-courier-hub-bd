@@ -20,6 +20,9 @@ class OrderData
         public string  $item_type = 'parcel',     // parcel | document
         public ?string $special_instruction = null,
         public ?int    $store_id = null,
+        public ?int    $city_id = null,
+        public ?int    $zone_id = null,
+        public ?int    $area_id = null,
     ) {}
 
     public static function from(array $data): self
@@ -40,6 +43,9 @@ class OrderData
             item_type: $data['item_type'] ?? 'parcel',
             special_instruction: $data['special_instruction'] ?? null,
             store_id: isset($data['store_id']) ? (int) $data['store_id'] : null,
+            city_id: isset($data['city_id']) ? (int) $data['city_id'] : null,
+            zone_id: isset($data['zone_id']) ? (int) $data['zone_id'] : null,
+            area_id: isset($data['area_id']) ? (int) $data['area_id'] : null,
         );
     }
 
@@ -61,6 +67,9 @@ class OrderData
             'item_type'           => $this->item_type,
             'special_instruction' => $this->special_instruction,
             'store_id'            => $this->store_id,
+            'city_id'             => $this->city_id,
+            'zone_id'             => $this->zone_id,
+            'area_id'             => $this->area_id,
         ];
     }
 }

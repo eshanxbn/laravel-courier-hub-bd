@@ -28,13 +28,14 @@ return [
     'couriers' => [
 
         'pathao' => [
-            'enabled'       => env('COURIER_PATHAO_ENABLED', false),
-            'sandbox'       => env('COURIER_PATHAO_SANDBOX', true),
-            'client_id'     => env('COURIER_PATHAO_CLIENT_ID'),
-            'client_secret' => env('COURIER_PATHAO_CLIENT_SECRET'),
-            'username'      => env('COURIER_PATHAO_USERNAME'),
-            'password'      => env('COURIER_PATHAO_PASSWORD'),
-            'base_url'      => [
+            'enabled'         => env('COURIER_PATHAO_ENABLED', false),
+            'sandbox'         => env('COURIER_PATHAO_SANDBOX', true),
+            'client_id'       => env('COURIER_PATHAO_CLIENT_ID'),
+            'client_secret'   => env('COURIER_PATHAO_CLIENT_SECRET'),
+            'username'        => env('COURIER_PATHAO_USERNAME'),
+            'password'        => env('COURIER_PATHAO_PASSWORD'),
+            'default_store_id'=> env('COURIER_PATHAO_STORE_ID'),
+            'base_url'        => [
                 'sandbox'    => 'https://hermes-api.p-stageenv.xyz',
                 'production' => 'https://api-hermes.pathao.com',
             ],
@@ -97,6 +98,8 @@ return [
             'pathao'    => env('COURIER_PATHAO_WEBHOOK_SECRET'),
             'steadfast' => env('COURIER_STEADFAST_WEBHOOK_SECRET'),
             'redx'      => env('COURIER_REDX_WEBHOOK_SECRET'),
+            'ecourier'  => env('COURIER_ECOURIER_WEBHOOK_SECRET'),
+            'paperfly'  => env('COURIER_PAPERFLY_WEBHOOK_SECRET'),
         ],
     ],
 

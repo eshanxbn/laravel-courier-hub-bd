@@ -29,16 +29,16 @@ class RedXDriver implements CourierDriver, HasStoreManagement, HasWebhook
     public function createOrder(OrderData $order): OrderResponse
     {
         $payload = [
-            'customer_name'         => $order->recipient_name,
-            'customer_phone'        => $order->recipient_phone,
-            'delivery_area'         => $order->recipient_area ?? 'N/A',
-            'delivery_area_id'      => (int) $order->recipient_area,
-            'customer_address'      => $order->recipient_address,
-            'merchant_invoice_id'   => $order->merchant_order_id,
-            'cash_collection_amount'=> $order->amount_to_collect,
-            'parcel_weight'         => $order->weight,
-            'instruction'           => $order->special_instruction ?? '',
-            'value'                 => $order->amount_to_collect,
+            'customer_name'          => $order->recipient_name,
+            'customer_phone'         => $order->recipient_phone,
+            'delivery_area'          => $order->recipient_area ?? $order->recipient_city ?? 'N/A',
+            'delivery_area_id'       => $order->area_id ?? (int) ($order->recipient_area ?? 0),
+            'customer_address'       => $order->recipient_address,
+            'merchant_invoice_id'    => $order->merchant_order_id,
+            'cash_collection_amount' => $order->amount_to_collect,
+            'parcel_weight'          => (int) round($order->weight * 1000), // RedX expects grams
+            'instruction'            => $order->special_instruction ?? '',
+            'value'                  => $order->amount_to_collect,
         ];
 
         if ($order->store_id) {
@@ -49,10 +49,10 @@ class RedXDriver implements CourierDriver, HasStoreManagement, HasWebhook
         $data = $response['parcel'] ?? [];
 
         return new OrderResponse(
-            tracking_id: $data['tracking_id'] ?? '',
+            tracking_id: (string) ($data['tracking_id'] ?? ''),
             courier_name: 'redx',
             status: RedXStatusMapper::map('pending'),
-            consignment_id: $data['tracking_id'] ?? '',
+            consignment_id: isset($data['tracking_id']) ? (string) $data['tracking_id'] : null,
             raw_response: $response,
         );
     }
@@ -132,11 +132,16 @@ class RedXDriver implements CourierDriver, HasStoreManagement, HasWebhook
     public function parseWebhook(Request $request): WebhookEvent
     {
         $payload = $request->all();
+
         return new WebhookEvent(
             courier_name: 'redx',
-            tracking_id: $payload['tracking_id'] ?? '',
-            status: RedXStatusMapper::map($payload['status'] ?? ''),
+            tracking_id: (string) ($payload['tracking_id'] ?? ''),
+            status: RedXStatusMapper::map((string) ($payload['status'] ?? '')),
             raw_payload: $payload,
+            timestamp: now()->toIso8601String(),
+            merchant_order_id: isset($payload['merchant_invoice_id'])
+                ? (string) $payload['merchant_invoice_id']
+                : (isset($payload['invoice_number']) ? (string) $payload['invoice_number'] : null),
         );
     }
 

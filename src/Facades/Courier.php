@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static \CourierHub\DTOs\CancelResponse cancelOrder(string $trackingId)
  * @method static \Illuminate\Support\Collection enabledDrivers()
  * @method static bool isEnabled(string $name)
+ * @method static bool supports(string $capability, string|null $driver = null)
+ * @method static string getDefaultDriver()
  *
  * @see \CourierHub\CourierManager
  */
