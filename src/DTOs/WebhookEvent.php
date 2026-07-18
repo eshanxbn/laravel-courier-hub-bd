@@ -13,5 +13,6 @@ class WebhookEvent
         public array         $raw_payload,
         public ?string       $timestamp = null,
         public ?string       $merchant_order_id = null,
+        public ?string       $consignment_id = null,
     ) {}
 }

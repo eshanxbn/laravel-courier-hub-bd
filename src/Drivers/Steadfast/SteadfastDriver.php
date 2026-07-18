@@ -145,6 +145,7 @@ class SteadfastDriver implements CourierDriver, HasBulkOrder, HasBalance, HasFra
             raw_payload: $payload,
             timestamp: now()->toIso8601String(),
             merchant_order_id: isset($payload['invoice']) ? (string) $payload['invoice'] : null,
+            consignment_id: isset($payload['consignment_id']) ? (string) $payload['consignment_id'] : null,
         );
     }
 

@@ -142,6 +142,7 @@ class RedXDriver implements CourierDriver, HasStoreManagement, HasWebhook
             merchant_order_id: isset($payload['merchant_invoice_id'])
                 ? (string) $payload['merchant_invoice_id']
                 : (isset($payload['invoice_number']) ? (string) $payload['invoice_number'] : null),
+            consignment_id: isset($payload['tracking_id']) ? (string) $payload['tracking_id'] : null,
         );
     }
 

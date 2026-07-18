@@ -193,6 +193,7 @@ class PathaoDriver implements CourierDriver, HasBalance, HasStoreManagement, Has
             raw_payload: $payload,
             timestamp: $payload['updated_at'] ?? now()->toIso8601String(),
             merchant_order_id: isset($payload['merchant_order_id']) ? (string) $payload['merchant_order_id'] : null,
+            consignment_id: isset($payload['consignment_id']) ? (string) $payload['consignment_id'] : null,
         );
     }
 
